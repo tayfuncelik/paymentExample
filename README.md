@@ -10,5 +10,9 @@ For further reference, please consider the following sections:
 
 ```http://localhost:8080/swagger-ui/index.html#/```
 
+###Design Idea Under Huge Traffics  
 If I need to design under huge traffics, we shouldn't ask transaction id if it does exist or not. Also this query shouldn't effect our fetch queries.
 So we can CQRS design for better impl.
+
+Another idea we can design with Async. If user don't need to wait his payment we could take his payment request and process it as asynchronous.
+So he/she can check it later if it is completed or still pending. 
