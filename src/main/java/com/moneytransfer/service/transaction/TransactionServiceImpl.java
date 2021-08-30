@@ -4,9 +4,11 @@ import com.moneytransfer.model.Player;
 import com.moneytransfer.model.Transaction;
 import com.moneytransfer.repository.TransactionRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @AllArgsConstructor
 @Service
@@ -14,9 +16,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
 
+    @Async
     @Override
-    public List<Transaction> findByPlayer(final Player player) {
-        return transactionRepository.findByPlayer(player);
+    public CompletableFuture<List<Transaction>> findByPlayer(final Player player) {
+        return CompletableFuture.completedFuture(transactionRepository.findByPlayer(player));
     }
 
     @Override
