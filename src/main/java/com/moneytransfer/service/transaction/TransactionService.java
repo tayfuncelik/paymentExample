@@ -4,10 +4,11 @@ import com.moneytransfer.model.Player;
 import com.moneytransfer.model.Transaction;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface TransactionService {
 
-    List<Transaction> findByPlayer(Player player);
+    CompletableFuture<List<Transaction>> findByPlayer(Player player);
 
     Transaction findById(Long id);
 

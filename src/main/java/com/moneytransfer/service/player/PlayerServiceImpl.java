@@ -11,11 +11,14 @@ import com.moneytransfer.repository.PlayerRepository;
 import com.moneytransfer.service.transaction.TransactionService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.moneytransfer.constant.Constant.*;
 
@@ -32,15 +35,17 @@ public class PlayerServiceImpl implements PlayerService {
         return playerRepository.findById(playerId);
     }
 
+    @Async
     @Transactional
     @Override
-    public synchronized TransactionResponse creditByTransaction(final TransactionRequest transactionRequest) throws ValidationException.NullException, NonUniqueTransactionException, ValidationException.InsufficientBalanceException {
+    public synchronized CompletableFuture<TransactionResponse> creditByTransaction(final TransactionRequest transactionRequest) throws ValidationException.NullException, NonUniqueTransactionException, ValidationException.InsufficientBalanceException {
         validateTransaction(transactionRequest.getTransactionId());
         validateLimit(transactionRequest);
 
-        Player player = null;
+        Player player;
         try {
-            player = playerRepository.findById(transactionRequest.getPlayerId()).get();
+            final Optional<Player> optional = playerRepository.findById(transactionRequest.getPlayerId());
+            player = optional.get();
         } catch (Exception e) {
             throw new ValidationException.NullException(PLAYER_NOT_FOUND);
         }
@@ -56,22 +61,31 @@ public class PlayerServiceImpl implements PlayerService {
 
         final BigDecimal newBalance = balance.add(credit);//CREDIT
         player.getAccount().setBalance(newBalance);
-
         transactionService.save(transaction);
-        return TransactionResponse.builder().transactionId(transaction.getTransactionId()).message(TRANSACTION_SUCCESS).build();
+        return CompletableFuture.completedFuture(TransactionResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .message(TRANSACTION_SUCCESS)
+                .build());
     }
 
+    @Async
     @Transactional
     @Override
-    public synchronized TransactionResponse debitByTransaction(final TransactionRequest transactionRequest) throws ValidationException.NullException, ValidationException.InsufficientBalanceException, NonUniqueTransactionException {
+    public synchronized CompletableFuture<TransactionResponse> debitByTransaction(final TransactionRequest transactionRequest) throws ValidationException.NullException, ValidationException.InsufficientBalanceException, NonUniqueTransactionException {
+        try {//If we don't put this one.Same request can come here at the same time in ASYNC call.
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         validateTransaction(transactionRequest.getTransactionId());
         validateLimit(transactionRequest);
 
-        Player player = null;
+        Player player ;
         try {
-            player = playerRepository.findById(transactionRequest.getPlayerId()).get();
+            final Optional<Player> optional = playerRepository.findById(transactionRequest.getPlayerId());
+            player = optional.get();
         } catch (Exception e) {
-            throw new ValidationException.NullException(PLAYER_NOT_FOUND);
+            throw getNullException();
         }
 
         final BigDecimal balance = player.getAccount().getBalance();
@@ -89,7 +103,16 @@ public class PlayerServiceImpl implements PlayerService {
         player.getAccount().setBalance(newBalance);
 
         transactionService.save(transaction);
-        return TransactionResponse.builder().transactionId(transaction.getTransactionId()).message(TRANSACTION_SUCCESS).build();
+
+        return CompletableFuture.completedFuture(TransactionResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .message(TRANSACTION_SUCCESS)
+                .build());
+    }
+
+    @NotNull
+    private ValidationException.NullException getNullException() {
+        return new ValidationException.NullException(PLAYER_NOT_FOUND);
     }
 
     private synchronized void validateTransaction(final Long transactionId) throws NonUniqueTransactionException {

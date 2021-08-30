@@ -7,13 +7,15 @@ import com.moneytransfer.payload.request.TransactionRequest;
 import com.moneytransfer.payload.response.TransactionResponse;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 public interface PlayerService {
 
     Optional<Player> findById(Long playerId);
 
-    TransactionResponse creditByTransaction(TransactionRequest transactionRequest)
+    CompletableFuture<TransactionResponse> creditByTransaction(TransactionRequest transactionRequest)
             throws NonUniqueTransactionException, ValidationException.InsufficientBalanceException, ValidationException.NullException;
 
-    TransactionResponse debitByTransaction(TransactionRequest transactionRequest) throws NonUniqueTransactionException, ValidationException.InsufficientBalanceException, ValidationException.NullException;
+    CompletableFuture<TransactionResponse> debitByTransaction(TransactionRequest transactionRequest)
+            throws NonUniqueTransactionException, ValidationException.InsufficientBalanceException, ValidationException.NullException;
 }

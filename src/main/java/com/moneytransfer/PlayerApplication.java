@@ -37,7 +37,7 @@ public class PlayerApplication {
             player.setAccount(account);
             repository.save(player);
             Transaction transaction = Transaction.builder()
-                    .transactionId(33L)
+                    .transactionId(1L)
                     .transactionType(TransactionType.CREDIT)
                     .amount(BigDecimal.valueOf(15))
                     .player(player)

@@ -3,6 +3,7 @@ package com.moneytransfer.player;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moneytransfer.model.TransactionType;
 import com.moneytransfer.payload.request.TransactionRequest;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -20,10 +22,11 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import java.math.BigDecimal;
 
 import static com.moneytransfer.constant.Constant.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -55,16 +58,12 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(1L);
         transactionRequest.setAmount(BigDecimal.valueOf(20));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/credit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForCredit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk()).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$.transactionId").value(transactionRequest.getTransactionId()))
                 .andExpect(MockMvcResultMatchers.jsonPath("$.message").value(TRANSACTION_SUCCESS));
+
     }
 
     @Test
@@ -75,14 +74,9 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(1L);
         transactionRequest.setAmount(BigDecimal.valueOf(5));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/debit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForDebit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult))
+                .andExpect(status().isOk()).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$.transactionId").value(transactionRequest.getTransactionId()))
                 .andExpect(MockMvcResultMatchers.jsonPath("$.message").value(TRANSACTION_SUCCESS));
     }
@@ -90,14 +84,21 @@ public class PlayerApplicationTests {
     @Test
     @Order(5)
     public void getTransactionHistory() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders
-                        .get("/api/player/transaction-history/{playerId}", 1)
-                        .accept(MediaType.APPLICATION_JSON))
+
+        RequestBuilder requestBuilder = MockMvcRequestBuilders
+                .get("/api/player/transaction-history/{playerId}", 1)
+                .accept(MediaType.APPLICATION_JSON);
+
+        final MvcResult mvcResult = mockMvc.perform(requestBuilder)
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(mvcResult))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(MockMvcResultMatchers.jsonPath("$[0].transactionType").value(TransactionType.CREDIT.name()))//Default insert
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].transactionId").value(33L))//Default insert
-                .andExpect(MockMvcResultMatchers.jsonPath("$[0].amount").value(15))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].transactionId").value(1L))//Default insert
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].amount").value(15))//Default insert
 
                 .andExpect(MockMvcResultMatchers.jsonPath("$[1].transactionType").value(TransactionType.CREDIT.name()))
                 .andExpect(MockMvcResultMatchers.jsonPath("$[1].transactionId").value(111L))
@@ -112,19 +113,12 @@ public class PlayerApplicationTests {
     @Order(6)
     public void uniqueTransactionException() throws Exception {
         TransactionRequest transactionRequest = new TransactionRequest();
-        transactionRequest.setTransactionId(33L);
+        transactionRequest.setTransactionId(1L);
         transactionRequest.setPlayerId(1L);
         transactionRequest.setAmount(BigDecimal.valueOf(5));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/debit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForDebit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$").value(NON_UNIQUE_TRANSACTION));
     }
 
@@ -136,15 +130,8 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(1L);
         transactionRequest.setAmount(BigDecimal.valueOf(555));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/debit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForDebit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$").value(INSUFFICIENT_AMOUNT));
     }
 
@@ -156,15 +143,8 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(333L);
         transactionRequest.setAmount(BigDecimal.valueOf(555));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/debit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForDebit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$").value(PLAYER_NOT_FOUND));
     }
 
@@ -176,15 +156,8 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(333L);
         transactionRequest.setAmount(BigDecimal.valueOf(555));
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/credit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForCredit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$").value(PLAYER_NOT_FOUND));
     }
 
@@ -196,15 +169,8 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(333L);
         transactionRequest.setAmount(null);
 
-        ObjectMapper Obj = new ObjectMapper();
-        String content = Obj.writeValueAsString(transactionRequest);
-
-        RequestBuilder requestBuilder = MockMvcRequestBuilders
-                .post("/api/player/credit")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
+        final MvcResult mvcResult = getMvcResultForCredit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
                 .andExpect(MockMvcResultMatchers.jsonPath("$").value(NO_DATA_FOUND));
     }
 
@@ -216,6 +182,13 @@ public class PlayerApplicationTests {
         transactionRequest.setPlayerId(333L);
         transactionRequest.setAmount(BigDecimal.valueOf(-8));
 
+        final MvcResult mvcResult = getMvcResultForCredit(transactionRequest);
+        mockMvc.perform(asyncDispatch(mvcResult)).andDo(print())
+                .andExpect(MockMvcResultMatchers.jsonPath("$").value(INVALID_AMOUNT));
+    }
+
+    @NotNull
+    private MvcResult getMvcResultForCredit(TransactionRequest transactionRequest) throws Exception {
         ObjectMapper Obj = new ObjectMapper();
         String content = Obj.writeValueAsString(transactionRequest);
 
@@ -224,7 +197,25 @@ public class PlayerApplicationTests {
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(content);
-        mockMvc.perform(requestBuilder).andDo(print())
-                .andExpect(MockMvcResultMatchers.jsonPath("$").value(INVALID_AMOUNT));
+
+        return mockMvc.perform(requestBuilder)
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
+    }
+
+    @NotNull
+    private MvcResult getMvcResultForDebit(TransactionRequest transactionRequest) throws Exception {
+        ObjectMapper Obj = new ObjectMapper();
+        String content = Obj.writeValueAsString(transactionRequest);
+
+        RequestBuilder requestBuilder = MockMvcRequestBuilders
+                .post("/api/player/debit")
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(content);
+
+        return mockMvc.perform(requestBuilder)
+                .andExpect(MockMvcResultMatchers.request().asyncStarted())
+                .andReturn();
     }
 }
