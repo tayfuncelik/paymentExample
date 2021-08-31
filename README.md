@@ -1,18 +1,28 @@
 # Getting Started
 
 ### Reference Documentation
-For further reference, please consider the following sections:
+I designed this way
+- Player which has an Account 
+- Every Transaction has its own unique transaction Id and request has playerId and transaction details.
+- I added default Player values while application running up
+- You can send request debit/ credit 
+    There are few business rules.
+- In  "asyn_way" branch you can find asynchronous way of it.
 
-* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
-* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/docs/2.5.4/maven-plugin/reference/html/)
-* [Create an OCI image](https://docs.spring.io/spring-boot/docs/2.5.4/maven-plugin/reference/html/#build-image)
 
+```mvn clean install```
+```mvn spring-boot:run```
 
 ```http://localhost:8080/swagger-ui/index.html#/```
 
-###Design Idea Under Huge Traffics  
-If I need to design under huge traffics, we shouldn't ask transaction id if it does exist or not. Also this query shouldn't effect our fetch queries.
-So we can CQRS design for better impl.
+### Design Idea Under Huge Traffics  
+We shouldn't get transactionId from DB.We can create an layer which is CQRS. 
+Or we can implement Redis and put all unique Id's in to. Later on we can check it inside.
+We can update later.
 
-Another idea we can design with Async. If user don't need to wait his payment we could take his payment request and process it as asynchronous.
+Another idea we can design asynchronous. 
+If we don't make user wait so long. We can take his/her payment request and I would process behind. I would warn user.
+They can check through transaction history.
 So he/she can check it later if it is completed or still pending. 
+
+-Profile can be added 
